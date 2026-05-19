@@ -1,0 +1,98 @@
+"""
+File is run by a github action to save processed reference file to the `cve-reference-ingest` repository.
+"""
+import sys
+import os
+import json
+import base64
+import requests
+import re
+
+def is_valid_contributor(name):
+    return re.fullmatch(r"[a-zA-Z0-9_-]+", name)
+
+
+g_api_key = os.environ["G_WRITE_API_KEY"]
+branch_name = os.environ["BRANCH_NAME"]
+if not branch_name:
+    print("Branch name was not set")
+    sys.exit(1)
+FILENAME = sys.argv[1]
+CONTRIBUTOR = sys.argv[2]
+basename = os.path.basename(FILENAME)
+
+if not is_valid_contributor(CONTRIBUTOR):
+    raise ValueError("Invalid contributor name")
+
+if not g_api_key:
+    print("Github API Key is not set")
+    sys.exit(1)
+
+if not FILENAME:
+    print(f"Filename value was not set correctly. Filename: {FILENAME}")
+    sys.exit(1)
+
+if not CONTRIBUTOR:
+    print(f"Contributor value was not set correctly. Contributor: {CONTRIBUTOR}")
+    sys.exit(1)
+
+content = ""
+with open(FILENAME, encoding="utf-8") as input_f:
+    content = input_f.read()
+
+if not content:
+    print(f"Filename: {FILENAME} was loaded and had no content or was unable to be opened.")
+    sys.exit(1)
+
+
+BASE_URL = "https://api.github.com/repos/"
+PRIMARY_REPO = "CVEProject/cve-reference-ingest"
+full_url = f"{BASE_URL}{PRIMARY_REPO}/contents/references/{CONTRIBUTOR}-{basename}"
+
+headers = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Authorization": f"Bearer {g_api_key}",
+}
+
+# Comment to trigger demo
+json_data = {"message": "a contributed reference"}
+
+base64_original = base64.b64encode(f"{content}\n".encode())
+
+
+base64_lines = base64_original.decode().split("\n")
+
+base64_data = "".join(base64_lines)
+
+json_data["content"] = base64_data
+json_data["branch"] = branch_name
+
+json_string = json.dumps(json_data)
+try:
+    # put requests will hang forever if a an explict timeout is not set. Setting to 120 a very large upper limit.
+    response = requests.put(full_url, headers=headers, data=json_string, timeout=120)
+except requests.exceptions.Timeout:
+    print(f"Request to {BASE_URL} timed out")
+    sys.exit(1)
+except requests.exceptions.ConnectionError:
+    print(f"Error connecting to {BASE_URL}")
+    sys.exit(1)
+except requests.exceptions.RequestException as e:
+    print(f"Requests Exception {e}")
+    sys.exit(1)
+
+status_code = response.status_code
+if status_code != 201:
+    # The string compare here is probably not needed, but I am not sure if GH returns 422 with any other failure, and we _really_ only want to catch this one case
+    if status_code == 422 and 'Invalid request.\n\n"sha" wasn\'t supplied.' in response.json().get("message", ""):
+        print(
+            "File already exists in main data repository. This is probably due to a past failure. Recovering, and skipping."
+        )
+    else:
+        print(
+            f"failed to add {full_url} via API: {str(status_code)} {str(response.reason)} {str(response.text)} {response.json()}"
+        )
+        sys.exit(1)
+
+print(FILENAME + " added: " + content)
