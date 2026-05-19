@@ -1,0 +1,18 @@
+[
+    {
+        "value": "192.168.1.100",
+        "ioc_type": "IP",
+        "threat_level": "HIGH",
+        "description": "command-and-control server ip address ",
+        "source": "industry blogs",
+        "added_at": "2026-05-19T01:42:18.701591+00:00"
+    },
+    {
+        "value": "cits2006.com.au",
+        "ioc_type": "DOMAIN",
+        "threat_level": "CRITICAL",
+        "description": "phishing website",
+        "source": "threat Feed",
+        "added_at": "2026-05-19T01:42:18.701591+00:00"
+    }
+]

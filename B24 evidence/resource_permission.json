@@ -1,0 +1,20 @@
+[
+    {
+        "owner_id": "01",
+        "owner_name": "Alice",
+        "resource_name": "book",
+        "permission": {
+            "00": []
+        }
+    },
+    {
+        "owner_id": "01",
+        "owner_name": "Alice",
+        "resource_name": "game",
+        "permission": {
+            "03": [
+                "read"
+            ]
+        }
+    }
+]
